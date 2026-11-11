@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "ML Service Example"
     PORT: int = 8001
     LOG_LEVEL: str = "INFO"
+    MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=("proprts.env", str(ENV_PATH)),
@@ -85,6 +86,7 @@ class Settings(BaseSettings):
 
     # --- Gemini Key
     GEMINI_API_KEY: str
+    MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
 
 
 settings = Settings()
