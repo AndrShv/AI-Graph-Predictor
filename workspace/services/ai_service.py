@@ -4,7 +4,7 @@ import logging
 import requests
 
 from workspace.configs.celery_config import celery_app
-from workspace.dto.ai_request import AI_Request
+from workspace.dto.ai_dto import AI_Request
 from workspace.helpers.ai_service_helper import process_both
 from workspace.services.miniO import MiniO_Service as miniO_service
 

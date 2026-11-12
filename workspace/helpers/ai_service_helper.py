@@ -1,6 +1,6 @@
 import asyncio
 
-from workspace.dto.ai_request import AI_Request
+from workspace.dto.ai_dto import AI_Request
 from workspace.services.ai_service import async_save_to_miniO, process_file
 
 
