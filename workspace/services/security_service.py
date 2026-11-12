@@ -1,10 +1,15 @@
+from uuid import UUID
+
 import bcrypt
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from workspace.configs.db_config import get_db
 from workspace.entity.db_models import DBUser
+from workspace.repos.user_repo import UserRepo
+from workspace.utils.jwt_util import JwtUtil
 
 security = HTTPBearer()
 
@@ -44,7 +49,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Invalid user ID format in token"
         )
 
-    user_repo = UserRepository(db)
+    user_repo = UserRepo(db)
     user = await user_repo.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
