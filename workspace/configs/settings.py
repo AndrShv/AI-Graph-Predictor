@@ -1,6 +1,8 @@
+import secrets
 from pathlib import Path
 from typing import Optional
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -86,7 +88,14 @@ class Settings(BaseSettings):
 
     # --- Gemini Key
     GEMINI_API_KEY: str
-    MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
+
+
+    # --- Security & JWT ---
+    JWT_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(64))
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRATION_MS: int = 86400000
+    JWT_REFRESH_EXPIRATION_MS: int = 172800000
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
 
 settings = Settings()
