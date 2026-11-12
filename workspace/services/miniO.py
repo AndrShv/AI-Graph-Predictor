@@ -17,7 +17,7 @@ class MiniO_Service:
         except Exception as e:
             raise RuntimeError(f"Storage bucket init failed: {e}") from e
 
-    async def uplaod_file(self, file_bytes: bytes, file_key: str) -> None:
+    async def save_file(self, file_bytes: bytes, file_key: str) -> None:
         try:
             stream = io.BytesIO(file_bytes)
             self.client.put_object(
@@ -53,4 +53,6 @@ class MiniO_Service:
             if self.metrics:
                 self.metrics.increment_delete_failed()
             raise ex
+
+
 
