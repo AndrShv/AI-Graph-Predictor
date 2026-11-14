@@ -22,10 +22,10 @@ protobuf
 google-genai
 pyjwt>=2.8.0
 bcrypt>=4.1.2
-Pillow
+pillow
 email-validator
 minio
-
+alembic
 # --- Utilities & Environment ---
 pydantic-settings==2.5.0
 sqlalchemy==2.0.36
