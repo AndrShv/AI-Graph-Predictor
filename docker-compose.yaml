@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres_container
+    environment:
+      POSTGRES_DB: ml_service
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 1111
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      resources:
+          limits:
+            cpus: '0.25'
+            memory: 256M
+          reservations:
+            cpus: '0.25'
+            memory: 256M
+
+volumes:
+  postgres_data:
