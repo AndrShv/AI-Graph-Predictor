@@ -65,7 +65,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 security = HTTPBearer()
 
 
-def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+async def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     jwt_token = credentials.credentials
 
     try:
