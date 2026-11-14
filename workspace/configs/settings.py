@@ -86,8 +86,7 @@ class Settings(BaseSettings):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/1"
 
 
-    # --- Gemini Key
-    GEMINI_API_KEY: str
+
 
 
     # --- Security & JWT ---

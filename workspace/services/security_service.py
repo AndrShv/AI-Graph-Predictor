@@ -1,10 +1,9 @@
 from uuid import UUID
 
 import bcrypt
-from fastapi import Depends, HTTPException
+from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette import status
 
 from workspace.configs.db_config import get_db
 from workspace.entity.db_models import DBUser
@@ -66,7 +65,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 security = HTTPBearer()
 
 
-async def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     jwt_token = credentials.credentials
 
     try:

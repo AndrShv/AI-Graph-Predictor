@@ -11,35 +11,40 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     deploy:
-      replicas: 1
       resources:
-          limits:
-            cpus: '0.25'
-            memory: 256M
-          reservations:
-            cpus: '0.25'
-            memory: 256M
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "root"]
+
+
 
   minio:
-    image: minio/minio:latest
+    image: pgsty/silo:latest
     container_name: minio_container
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000"
-    command: server /data
+      - "9001:9001"
+    command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
     deploy:
-      replicas: 1
       resources:
-          limits:
-            cpus: '0.25'
-            memory: 256M
-          reservations:
-            cpus: '0.25'
-            memory: 256M
+        limits:
+          cpus: '0.25'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
 
 volumes:
   postgres_data:
