@@ -1,14 +1,12 @@
 import asyncio
+import base64
 import logging
 
 import requests
-from fastapi import Depends
 
 from workspace.configs.celery_config import celery_app
 from workspace.dto.ai_dto import AI_Request
-from workspace.helpers.ai_service_helper import process_both
-from workspace.services.miniO import get_minio_client
-from workspace.services.security_service import check_if_user_has_authentication
+from workspace.services.miniO import get_minio_client, get_minio_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +25,6 @@ CRITICAL RULES:
 3. Digitization (`historical_points`):
    - Extract key turning points, highs, lows, and regular intervals along the visible price curve.
    - Map them accurately to the chart's Y-axis (price/rate) and X-axis (timestamp/label). If exact timestamps are obscured, infer logical sequential labels.
-4. "Image dimensions: width={img_width}px, height={img_height}px.\n"
-   "User instruction: {user_query}\n\n"
-   "Analyze the chart, extract dense historical price coordinates, and compute the forecast trajectory "
-   "in strict JSON format according to the system schema."
 
 REQUIRED JSON SCHEMA:
 {
@@ -61,11 +55,13 @@ REQUIRED JSON SCHEMA:
 }
 """.strip()
 
+DEFAULT_USER_PROMPT = "Analyze this financial chart, extract dense historical price coordinates, and compute the forecast trajectory in strict JSON format."
 
-async def async_save_to_miniO(file_bytes: bytes, minio_service=Depends(get_minio_client)):
-    file_key = "file_" + str(file_bytes.__hash__()) + ".png"
 
-    await minio_service.save_file(minio_service, file_bytes, file_key)
+async def async_save_to_miniO(file_bytes: bytes, minio_service):
+    file_key = "file_" + str(hash(file_bytes)) + ".png"
+    await minio_service.save_file(file_bytes, file_key)
+    return file_key
 
 
 async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt: str) -> dict:
@@ -73,28 +69,29 @@ async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt
     if not file_bytes or len(file_bytes) == 0:
         raise ValueError("File cannot be empty")
 
-    if prompt is None or prompt.strip() == "":
-        prompt = SYSTEM_PROMPT
+    user_prompt = prompt.strip() if prompt else DEFAULT_USER_PROMPT
+    full_prompt = f"{SYSTEM_PROMPT}\n\nUser instruction: {user_prompt}"
+
     try:
+        encoded_image = base64.b64encode(file_bytes).decode('utf-8')
+
         response = requests.post(
             CLOUD_URL,
             json={
-                "image": file_bytes,
-                "file_name": file_name,
-                "file_path": file_path,
-                "max_new_tokens": 1000,
-                "prompt": prompt
+                "image_base64": encoded_image,
+                "max_new_tokens": 1500,
+                "prompt": full_prompt
             },
-
-            timeout=60
+            timeout=90
         )
+
         response.raise_for_status()
         data = response.json()
         if "response" not in data:
             raise KeyError(f"Response missing 'response' key. Available keys: {list(data.keys())}")
         return {
             "response": data["response"],
-            "input_tokens": data.get("prompt_tokens", len(prompt.split())),
+            "input_tokens": data.get("prompt_tokens", len(full_prompt.split())),
             "output_tokens": data.get("completion_tokens", len(data["response"].split()))
         }
 
@@ -103,9 +100,18 @@ async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt
         raise
 
 
+async def process_both(data: AI_Request):
+    get_file, get_file_name, get_file_path = data.file, str(data.file_name), str(data.file_path)
+    user_prompt = data.prompt.strip() if data.prompt else DEFAULT_USER_PROMPT
+    full_prompt = f"{SYSTEM_PROMPT}\n\nUser instruction: {user_prompt}"
+
+    await asyncio.gather(
+        async_save_to_miniO(get_file, get_minio_service(get_minio_client())),
+        process_file(get_file, get_file_name, get_file_path, full_prompt)
+    )
 
 
-@check_if_user_has_authentication
+
 @celery_app.task(bind=True, name="make_request_to_custom_ai", max_retries=3, default_retry_delay=60)
 def make_request_to_custom_ai(self, data_for_ai: AI_Request):
     try:

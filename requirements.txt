@@ -22,7 +22,9 @@ protobuf
 google-genai
 pyjwt>=2.8.0
 bcrypt>=4.1.2
-
+Pillow
+email-validator
+minio
 
 # --- Utilities & Environment ---
 pydantic-settings==2.5.0

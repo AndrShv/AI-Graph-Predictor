@@ -3,6 +3,8 @@ import io
 from fastapi import Depends
 from minio import Minio
 
+from workspace.configs.settings import settings
+
 
 class MiniO_Service:
     def __init__(self, internal_client: Minio, bucket: str, metrics_service=None):
@@ -58,8 +60,8 @@ class MiniO_Service:
 def get_minio_client() -> Minio:
     return Minio(
         "localhost:9000",
-        access_key="minio_admin",
-        secret_key="minio_password",
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
         secure=False
     )
 
