@@ -58,3 +58,20 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
 
     return user
+
+
+async def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+    is_authenticated = False
+    jwt_token = credentials.credentials
+    payload = JwtUtil.decode_token(jwt_token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="There is no authentication for this user. Please log in to access this resource."
+        )
+    else:
+        is_authenticated = True
+    return is_authenticated
+
+
+

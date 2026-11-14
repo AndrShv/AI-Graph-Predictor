@@ -8,6 +8,7 @@ from workspace.configs.celery_config import celery_app
 from workspace.dto.ai_dto import AI_Request
 from workspace.helpers.ai_service_helper import process_both
 from workspace.services.miniO import get_minio_client
+from workspace.services.security_service import check_if_user_has_authentication
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ CRITICAL RULES:
 3. Digitization (`historical_points`):
    - Extract key turning points, highs, lows, and regular intervals along the visible price curve.
    - Map them accurately to the chart's Y-axis (price/rate) and X-axis (timestamp/label). If exact timestamps are obscured, infer logical sequential labels.
+4. "Image dimensions: width={img_width}px, height={img_height}px.\n"
+   "User instruction: {user_query}\n\n"
+   "Analyze the chart, extract dense historical price coordinates, and compute the forecast trajectory "
+   "in strict JSON format according to the system schema."
 
 REQUIRED JSON SCHEMA:
 {
@@ -57,8 +62,7 @@ REQUIRED JSON SCHEMA:
 """.strip()
 
 
-
-async def async_save_to_miniO(file_bytes: bytes, minio_service = Depends(get_minio_client)):
+async def async_save_to_miniO(file_bytes: bytes, minio_service=Depends(get_minio_client)):
     file_key = "file_" + str(file_bytes.__hash__()) + ".png"
 
     await minio_service.save_file(minio_service, file_bytes, file_key)
@@ -99,6 +103,9 @@ async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt
         raise
 
 
+
+
+@check_if_user_has_authentication
 @celery_app.task(bind=True, name="make_request_to_custom_ai", max_retries=3, default_retry_delay=60)
 def make_request_to_custom_ai(self, data_for_ai: AI_Request):
     try:
