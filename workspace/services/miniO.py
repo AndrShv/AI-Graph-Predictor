@@ -1,6 +1,7 @@
 import io
-from minio import Minio
 
+from fastapi import Depends
+from minio import Minio
 
 
 class MiniO_Service:
@@ -8,7 +9,6 @@ class MiniO_Service:
         self.client = internal_client
         self.bucket = bucket
         self.metrics = metrics_service
-
 
     def init_bucket(self) -> None:
         try:
@@ -54,5 +54,20 @@ class MiniO_Service:
                 self.metrics.increment_delete_failed()
             raise ex
 
+
+def get_minio_client() -> Minio:
+    return Minio(
+        "localhost:9000",
+        access_key="minio_admin",
+        secret_key="minio_password",
+        secure=False
+    )
+
+def get_minio_service(client: Minio = Depends(get_minio_client)) -> MiniO_Service:
+    return MiniO_Service(
+        internal_client=client,
+        bucket="charts-bucket",
+        metrics_service=None
+    )
 
 

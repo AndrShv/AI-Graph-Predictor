@@ -2,29 +2,75 @@ import asyncio
 import logging
 
 import requests
+from fastapi import Depends
 
 from workspace.configs.celery_config import celery_app
 from workspace.dto.ai_dto import AI_Request
 from workspace.helpers.ai_service_helper import process_both
-from workspace.services.miniO import MiniO_Service as miniO_service
+from workspace.services.miniO import get_minio_client
 
 logger = logging.getLogger(__name__)
 
-CLOUD_URL = "https://knox-exopoditic-azalea.ngrok-free.dev/generate-cloud"
-prompt = ""
+CLOUD_URL = "https://knox-exopoditic-azalea.ngrok-free.dev/generate-qwen2.5-vl"
+SYSTEM_PROMPT = """
+You are an expert quantitative financial analyst and computer vision chart-digitization engine.
+Your task is to analyze the provided financial chart image, digitize visible price action, and generate a forecast trajectory based on the user's request.
+
+CRITICAL RULES:
+1. Output MUST be strictly valid JSON matching the exact schema below. Do NOT wrap the JSON in markdown code blocks (no ```json or ```), and do NOT include any conversational text before or after the JSON.
+2. Pixel Coordinates System:
+   - Origin (0, 0) is at the TOP-LEFT corner of the image.
+   - X increases to the right; Y increases downwards.
+   - All `pixel_x` and `pixel_y` values must be integers within the provided image dimensions (`width` x `height`).
+   - `forecast_pixels` MUST start seamlessly from the last visible price point on the chart and extend into the future/right area.
+3. Digitization (`historical_points`):
+   - Extract key turning points, highs, lows, and regular intervals along the visible price curve.
+   - Map them accurately to the chart's Y-axis (price/rate) and X-axis (timestamp/label). If exact timestamps are obscured, infer logical sequential labels.
+
+REQUIRED JSON SCHEMA:
+{
+  "asset_pair": "string (e.g., 'USD/EUR' or 'UNKNOWN')",
+  "timeframe": "string (e.g., '1H', '1D', or 'UNKNOWN')",
+  "analysis": {
+    "trend": "BULLISH | BEARISH | SIDEWAYS",
+    "support_levels": [float],
+    "resistance_levels": [float],
+    "summary": "string (detailed technical reasoning based on chart patterns, indicators, and user prompt)"
+  },
+  "historical_points": [
+    {
+      "timestamp": "string",
+      "rate": float,
+      "pixel_x": int,
+      "pixel_y": int
+    }
+  ],
+  "forecast_points": [
+    {
+      "timestamp": "string",
+      "predicted_rate": float,
+      "pixel_x": int,
+      "pixel_y": int
+    }
+  ]
+}
+""".strip()
 
 
-async def async_save_to_miniO(file_bytes: bytes):
+
+async def async_save_to_miniO(file_bytes: bytes, minio_service = Depends(get_minio_client)):
     file_key = "file_" + str(file_bytes.__hash__()) + ".png"
 
-    await miniO_service.save_file(file_bytes, file_key)
+    await minio_service.save_file(minio_service, file_bytes, file_key)
 
 
-async def process_file(file_bytes: bytes, file_name: str, file_path: str):
+async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt: str) -> dict:
     logger.info(f"Processing file: {file_name} at path: {file_path}")
     if not file_bytes or len(file_bytes) == 0:
         raise ValueError("File cannot be empty")
 
+    if prompt is None or prompt.strip() == "":
+        prompt = SYSTEM_PROMPT
     try:
         response = requests.post(
             CLOUD_URL,
