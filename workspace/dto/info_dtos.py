@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
 
+from workspace.entity.enums import Roles
+
 
 class InfoRequest(BaseModel):
     id: UUID
@@ -19,11 +21,12 @@ class UpdateUserRequest(BaseModel):
     email: EmailStr
     role: str
     password:str
+    updated_at: str
 
 class UpdateUserResponse(BaseModel):
     id: UUID
     username: str
     email: str
-    role: str
+    role: Roles
     created_at: str
     updated_at: str
