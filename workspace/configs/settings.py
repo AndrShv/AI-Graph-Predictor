@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     PORT: int = 8001
     LOG_LEVEL: str = "INFO"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
+    AI_SERVICE_URL: str = "http://localhost:8000/generate-qwen2.5-vl"
 
     model_config = SettingsConfigDict(
         env_file=("proprts.env", str(ENV_PATH)),
@@ -44,6 +45,11 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
             f"?ssl=disable"
         )
+
+    @property
+    def database_url_sync(self) -> str:
+        """Synchronous URL used by Alembic migrations."""
+        return self.database_url.replace("+asyncpg", "+psycopg")
 
     # --- RabbitMQ ---
     CLOUDAMQP_URL: Optional[str] = None
@@ -98,7 +104,7 @@ class Settings(BaseSettings):
 
     # --- MinIO ---
     MINIO_URL: str = "http://localhost:9000"
-    MINIO_INTERNAL_ENDPOINT: str = "http://minio-s3:9000"
+    MINIO_INTERNAL_ENDPOINT: str = "http://localhost:9000"
     MINIO_PUBLIC_ENDPOINT: str = "http://192.168.3.118:9090"
     MINIO_ACCESS_KEY: str = ""
     MINIO_SECRET_KEY: str = ""

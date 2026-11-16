@@ -19,7 +19,7 @@ class MiniO_Service:
         except Exception as e:
             raise RuntimeError(f"Storage bucket init failed: {e}") from e
 
-    async def save_file(self, file_bytes: bytes, file_key: str) -> None:
+    async def save_file(self, file_bytes: bytes, file_key: str, content_type: str = "image/png") -> None:
         try:
             stream = io.BytesIO(file_bytes)
             self.client.put_object(
@@ -27,7 +27,7 @@ class MiniO_Service:
                 object_name=file_key,
                 data=stream,
                 length=len(file_bytes),
-                content_type="image/png"
+                content_type=content_type
             )
             if self.metrics:
                 self.metrics.increment_upload_success()
@@ -58,8 +58,10 @@ class MiniO_Service:
 
 
 def get_minio_client() -> Minio:
+    endpoint = settings.MINIO_INTERNAL_ENDPOINT or settings.MINIO_URL
+    endpoint = endpoint.replace("http://", "").replace("https://", "")
     return Minio(
-        "localhost:9000",
+        endpoint,
         access_key=settings.MINIO_ACCESS_KEY,
         secret_key=settings.MINIO_SECRET_KEY,
         secure=False
@@ -68,7 +70,7 @@ def get_minio_client() -> Minio:
 def get_minio_service(client: Minio = Depends(get_minio_client)) -> MiniO_Service:
     return MiniO_Service(
         internal_client=client,
-        bucket="charts-bucket",
+        bucket=settings.MINIO_BUCKET,
         metrics_service=None
     )
 

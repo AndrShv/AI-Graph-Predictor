@@ -32,5 +32,7 @@ alembic
 pydantic-settings==2.5.0
 sqlalchemy==2.0.36
 asyncpg==0.30.0
+psycopg[binary]==3.2.3
+psycopg
 python-dotenv==1.0.1
 requests==2.32.3

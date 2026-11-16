@@ -27,6 +27,15 @@ class AI_Response(Base):
     )
 
     prompt: Mapped[str] = mapped_column(TEXT, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    task_id: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    file_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    response: Mapped[Optional[str]] = mapped_column(TEXT, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(TEXT, nullable=True)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
