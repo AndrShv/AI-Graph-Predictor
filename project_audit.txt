@@ -1,0 +1,145 @@
+АУДИТ ПРОЕКТА AI_GRAPH_PREDICTOR
+
+Дата проверки: 2026-11-16
+
+Сравнение текущего проекта с аудитом от 2026-11-14. Git status чистый,
+поэтому ниже указано фактическое состояние кода, а не история изменений.
+
+## УЖЕ ИСПРАВЛЕНО
+
+1. В requirements.txt добавлены Pillow, minio, email-validator, alembic,
+FastAPI, Celery, Redis и остальные основные зависимости. Многие версии
+зафиксированы, но accelerate, torch, transformers и некоторые другие
+зависимости закреплены не полностью.
+
+2. FastAPI dependency в AI endpoint исправлена. В ai_controller.py теперь:
+
+    auth_check: dict = Depends(check_if_user_has_authentication)
+
+3. Auth router подключён в main.py. Доступны register, login и /me.
+
+4. Добавлена проверка изображений через Pillow: имя, MIME-тип, размер и
+реальное содержимое файла.
+
+5. Часть ошибок уже возвращается через HTTPException: неверные credentials,
+отсутствующий пользователь, неправильная роль и ошибки загрузки файла.
+
+## ИСПРАВЛЕНО ЧАСТИЧНО
+
+### Celery и MinIO
+
+Аргументы process_both() теперь передаются корректно: присутствуют MinIO
+service и prompt. Но workflow всё ещё не готов:
+
+- в Celery передаётся AI_Request с байтами файла;
+- JSON-сериализатор Celery может не сериализовать bytes и Pydantic-модель;
+- результаты asyncio.gather() игнорируются;
+- результат AI не сохраняется;
+- AI получает исходные байты, а не файл из MinIO;
+- используется нестабильный hash(file_bytes).
+
+Правильная схема: API сохраняет файл в MinIO, в Celery передаются только
+file_key, user_id и prompt; worker скачивает файл, вызывает AI и сохраняет
+статус и результат в БД.
+
+### Безопасность конфигурации
+
+Секреты частично вынесены в settings.py, но пароль PostgreSQL захардкожен
+в docker-compose.yaml, credentials MinIO не согласованы, miniO.py использует
+localhost:9000, а JWT_SECRET генерируется заново при каждом запуске.
+Нужно задать постоянные значения в .env и использовать имена Docker-сервисов.
+
+### Авторизация
+
+Остались три механизма: filter_request, get_current_user и
+check_if_user_has_authentication. Нужно оставить один основной JWT dependency,
+а проверку администратора вынести в отдельный require_admin.
+
+## НЕ ИСПРАВЛЕНО
+
+1. Нет GET /api/ai/tasks/{task_id}. Клиент получает task_id, но не может
+получить результат. Минимальная реализация:
+
+    from celery.result import AsyncResult
+
+    @ai_router.get("/tasks/{task_id}")
+    async def get_task_status(task_id: str):
+        task = AsyncResult(task_id)
+        return {"task_id": task_id, "status": task.status,
+                "result": task.result if task.successful() else None}
+
+Лучше также проверять принадлежность задачи текущему пользователю.
+
+2. Ответ AI не валидируется через Pydantic. Нужно создать модели для
+analysis, historical_points, forecast_points и полного ответа, затем
+использовать AIResponse.model_validate_json(...), обрабатывая невалидный JSON.
+
+3. AI_Response содержит только id, prompt и даты. Нужно добавить user_id,
+task_id, status, response, error, file_key, время начала и завершения.
+Использовать статусы PENDING -> PROCESSING -> COMPLETED/FAILED.
+
+4. Вместо hash(file_bytes) использовать SHA-256 или UUID:
+
+    import hashlib
+    digest = hashlib.sha256(file_bytes).hexdigest()
+    file_key = f"charts/{digest}.png"
+
+5. CLOUD_URL в ai_service.py зашит в коде. Перенести его в settings.py и
+задавать через .env.
+
+6. Alembic фактически не используется: init_db() всё ещё вызывает
+Base.metadata.create_all(). Нужно убрать create_all() из production, создать
+migration в workspace/alembic/versions и запускать alembic upgrade head.
+
+7. get_db() и UserRepo одновременно вызывают commit(). Нужно выбрать один
+уровень управления транзакциями. Регистрацию защитить от race condition и
+обработать IntegrityError.
+
+8. UpdateUserRequest не поддерживает частичное обновление: поля объявлены
+обязательными, хотя endpoint проверяет их на None. Сделать поля Optional и
+убрать updated_at из входного запроса.
+
+9. UserNotFoundException возвращает 401. Для отсутствующего пользователя
+нужен 404 Not Found.
+
+10. Email перед сохранением нужно нормализовать:
+
+    email = str(data.email).strip().lower()
+
+11. Docker Compose содержит только PostgreSQL и MinIO. Отсутствуют RabbitMQ,
+Redis, FastAPI app и Celery worker. Также Dockerfile ссылается на отсутствующий
+entrypoint.sh. Нужно добавить сервисы, healthcheck, depends_on, внутреннюю
+сеть и переменные из .env.
+
+12. В settings.py осталась опечатка:
+
+    ENV_PATH = BASE_DIR / "proprts.env"
+
+Исправить на .env и использовать одно имя файла.
+
+13. Нет тестов, линтера и форматтера. Нужны pytest-тесты регистрации, login,
+JWT, валидации файлов, статуса Celery-задачи и AI workflow, а также Ruff/Black.
+
+## РЕКОМЕНДУЕМЫЙ ПОРЯДОК ИСПРАВЛЕНИЙ
+
+1. Передавать в Celery file_key вместо bytes.
+2. Добавить RabbitMQ, Redis, app и Celery worker в Compose.
+3. Добавить endpoint статуса задачи.
+4. Сохранять task и AI result в БД.
+5. Добавить Pydantic-валидацию ответа модели.
+6. Вынести URL AI, JWT и credentials в .env.
+7. Исправить MinIO endpoint и bucket configuration.
+8. Перейти с create_all() на Alembic migrations.
+9. Устранить дублирование авторизации и commit().
+10. Добавить тесты, linting и formatting.
+
+## ИТОГ
+
+Базовые проблемы запуска и маршрутизации исправлены: зависимости добавлены,
+auth router подключён, FastAPI dependency оформлена правильно, появилась
+валидация изображений и часть HTTP-ошибок.
+
+Основной сценарий upload -> Celery -> MinIO -> AI -> result пока не завершён.
+Критические оставшиеся пункты: передача file_key вместо bytes, RabbitMQ/Redis/
+worker, сохранение результата в БД, endpoint статуса, Pydantic-валидация
+AI-ответа и постоянные секреты.
