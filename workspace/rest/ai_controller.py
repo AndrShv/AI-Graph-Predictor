@@ -1,7 +1,5 @@
 import logging
 
-from uuid import UUID
-
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Form
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,13 +7,13 @@ from starlette import status
 
 from workspace.helpers.file_validator import validate_file, validate_image_bytes
 from workspace.configs.db_config import get_db
-from workspace.entity.db_models import AI_Response
+from workspace.entity.db_models import AI_Response, DBUser
 from workspace.services.ai_service import (
     async_save_to_miniO,
     make_request_to_custom_ai,
 )
 from workspace.services.miniO import get_minio_client, get_minio_service
-from workspace.services.security_service import check_if_user_has_authentication
+from workspace.services.security_service import get_current_user
 
 ai_router = APIRouter(prefix="/api/ai", tags=["AI"])
 logger = logging.getLogger(__name__)
@@ -24,13 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 @ai_router.post("/analyze", status_code=status.HTTP_202_ACCEPTED)
-async def analyze_graph(
-    file: UploadFile = File(...),
-    prompt: str = Form(default=""),
-    auth_check: dict = Depends(check_if_user_has_authentication),
-):
+async def analyze_graph(file: UploadFile = File(...), prompt: str = Form(default=""),
+                        current_user: DBUser = Depends(get_current_user)):
     logger.info("Received async graph analysis request for file: %s", file.filename)
-    user_id = auth_check.get("sub") or auth_check.get("userId")
+    user_id = current_user.id
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -75,14 +70,10 @@ async def analyze_graph(
 @ai_router.get("/tasks/{task_id}")
 async def get_task_status(
     task_id: str,
-    auth_check: dict = Depends(check_if_user_has_authentication),
+    current_user: DBUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    raw_user_id = auth_check.get("sub") or auth_check.get("userId")
-    try:
-        user_id = UUID(str(raw_user_id))
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user identity") from exc
+    user_id = current_user.id
 
     result = await db.scalars(
         select(AI_Response).where(

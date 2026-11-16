@@ -39,7 +39,7 @@ async def async_save_to_miniO(
     return file_key
 
 
-async def process_file(file_bytes: bytes, file_name: str, file_path: str, prompt: str) -> dict[str, Any]:
+async def process_file(file_bytes: bytes, prompt: str) -> dict[str, Any]:
     if not file_bytes:
         raise ValueError("File cannot be empty")
 
@@ -95,7 +95,7 @@ async def process_both(task_id: str, file_key: str, user_id: str, prompt: str, f
     )
     try:
         file_bytes = await minio_service.get_file(file_key)
-        result = await process_file(file_bytes, file_name, file_key, prompt)
+        result = await process_file(file_bytes, prompt)
         stored_response = result["response"]
         if not isinstance(stored_response, str):
             stored_response = json.dumps(stored_response)

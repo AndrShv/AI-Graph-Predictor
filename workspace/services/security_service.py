@@ -1,5 +1,5 @@
 from uuid import UUID
-
+from fastapi import HTTPException, status
 import bcrypt
 from fastapi import Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -58,30 +58,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
     return user
 
-
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
 security = HTTPBearer()
-
-
-async def check_if_user_has_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    jwt_token = credentials.credentials
-
-    try:
-        payload = JwtUtil.decode_token(jwt_token)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Could not validate credentials: {str(e)}"
-        )
-
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="There is no authentication for this user. Please log in to access this resource."
-        )
-    return payload
-
 
 

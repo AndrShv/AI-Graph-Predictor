@@ -10,14 +10,14 @@ class InfoRequest(BaseModel):
 
 class InfoResponse(BaseModel):
     id: UUID
-    username: str
+    name: str
     email: str
     role: str
     created_at: str
 
 
 class UpdateUserRequest(BaseModel):
-    username: str
+    name: str
     email: EmailStr
     role: str
     password:str
@@ -25,7 +25,7 @@ class UpdateUserRequest(BaseModel):
 
 class UpdateUserResponse(BaseModel):
     id: UUID
-    username: str
+    name: str
     email: str
     role: Roles
     created_at: str

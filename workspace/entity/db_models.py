@@ -55,7 +55,7 @@ class DBUser(Base):
         server_default=func.gen_random_uuid()
     )
 
-    username: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(
         String(255), index=True, unique=True, nullable=False
     )

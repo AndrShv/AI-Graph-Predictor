@@ -35,7 +35,7 @@ async def register(data: RegisterRequest, user_repo: UserRepo = Depends(get_user
             id=uuid.uuid4(),
             email=data.email,
             password=hashed_password,
-            username=data.username,
+            name=data.name,
         )
         created_user = await user_repo.create_user(new_user)
         logger.info("user registered successfully")
@@ -68,7 +68,7 @@ async def get_me(current_user: DBUser = Depends(get_current_user)):
     logger.info(f"current_user_id: {current_user.id}")
     return InfoResponse(
         id=current_user.id,
-        username=current_user.username,
+        name=current_user.name,
         email=current_user.email,
         role=str(current_user.role),
         created_at=str(current_user.created_at),
@@ -93,7 +93,7 @@ async def get_user_by_id(user_id: uuid.UUID,
 
     return InfoResponse(
         id=uuid.UUID(str(my_info.id)),
-        username=str(my_info.username),
+        name=str(my_info.name),
         email=str(my_info.email),
         role=str(my_info.role),
         created_at=str(my_info.created_at),
@@ -114,8 +114,8 @@ async def update_user_by_id(user_id: uuid.UUID,request: UpdateUserRequest,
     if user_id != current_user.id and current_user.role != Roles.ADMIN.value:
         logger.warning("User has not enough authorities")
         raise InsufficientCredentialsException
-    if request.username is not None:
-        user.username = request.username
+    if request.name is not None:
+        user.name = request.name
 
     if request.email is not None:
         user.email = request.email
