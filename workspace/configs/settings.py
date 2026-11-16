@@ -49,7 +49,12 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Synchronous URL used by Alembic migrations."""
-        return self.database_url.replace("+asyncpg", "+psycopg")
+        # asyncpg expects ``ssl`` while psycopg (used by Alembic) expects
+        # ``sslmode``.  Keep the async URL unchanged for the application and
+        # translate only the driver-specific option here.
+        return self.database_url.replace("+asyncpg", "+psycopg").replace(
+            "ssl=disable", "sslmode=disable"
+        ).replace("ssl=require", "sslmode=require")
 
     # --- RabbitMQ ---
     CLOUDAMQP_URL: Optional[str] = None

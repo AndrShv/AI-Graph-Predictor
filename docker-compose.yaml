@@ -20,7 +20,8 @@ services:
           cpus: '0.25'
           memory: 256M
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "root"]
+      test: [ "CMD", "pg_isready", "-U", "root", "-d", "ml_service" ]
+
 
 
 
