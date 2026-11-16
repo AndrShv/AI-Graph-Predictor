@@ -1,0 +1,134 @@
+АУДИТ ПРОЕКТА AI_GRAPH_PREDICTOR
+
+Дата: 2026-11-14
+
+ОБЩАЯ ОЦЕНКА
+
+Проект выглядит как хороший прототип FastAPI-сервиса для анализа графиков, но сейчас имеет несколько критичных ошибок, из-за которых полный сценарий upload -> Celery -> MinIO -> AI -> результат не сможет стабильно работать.
+
+КРИТИЧНЫЕ ПРОБЛЕМЫ
+
+1. Приложение не запускается в текущем окружении
+
+При импорте проекта возникает:
+
+ModuleNotFoundError: No module named 'fastapi'
+
+Нужно установить requirements.txt и добавить отсутствующие зависимости:
+- Pillow
+- minio
+- email-validator для Pydantic EmailStr
+
+
+Также желательно зафиксировать версии всех зависимостей.
+
+2. Неправильное использование dependency в AI endpoint
+
+В workspace/rest/ai_controller.py используется:
+
+@check_if_user_has_authentication
+@ai_router.post('/analyze')
+
+check_if_user_has_authentication является FastAPI dependency, а не обычным decorator. Нужно оставить только:
+
+@ai_router.post('/analyze')
+async def analyze_graph(
+    file: UploadFile = File(...),
+    auth_check: dict = Depends(check_if_user_has_authentication),
+):
+    ...
+
+3. Celery получает неправильный тип данных
+
+Сейчас передаются только байты файла:
+
+make_request_to_custom_ai.delay(file_bytes)
+
+Но задача ожидает AI_Request. Кроме того, изображения не следует передавать через RabbitMQ. Лучше сначала сохранить файл в MinIO, а в Celery передавать только file_key.
+
+4. Ошибки аргументов в process_both
+
+В workspace/helpers/ai_service_helper.py:
+- async_save_to_miniO вызывается без minio_service;
+- process_file вызывается без обязательного prompt;
+- результаты обеих операций игнорируются;
+- MinIO не подключён к фактическому workflow.
+
+5. Auth router не подключён
+
+В workspace/main.py подключён только ai_router. Нужно подключить auth_router, иначе /api/auth/register, /login и /me недоступны.
+
+6. Дублирование механизмов авторизации
+
+В проекте есть request_filter.py, get_current_user и check_if_user_has_authentication. Стоит оставить единый механизм проверки JWT и отдельную проверку роли администратора.
+
+БЕЗОПАСНОСТЬ
+
+- Пароли PostgreSQL и MinIO захардкожены в docker-compose.yaml.
+- Credentials MinIO в docker-compose.yaml не совпадают с credentials в miniO.py.
+- JWT_SECRET генерируется заново при каждом запуске, если не задан через env. После перезапуска все токены становятся недействительными.
+- Не следует возвращать клиенту текст внутренних исключений.
+- Размер файла проверяется после полного чтения в память.
+- content_type можно подделать; нужно дополнительно проверять формат и размеры изображения.
+- Нет rate limiting для login и AI endpoint.
+
+API И ОШИБКИ
+
+- Вместо return {'error': ...} нужно выбрасывать HTTPException с корректным статусом.
+- Нужна response-модель для AI-задачи.
+- Нужен endpoint GET /api/ai/tasks/{task_id} для получения результата Celery-задачи.
+- Сейчас клиент получает task_id, но не имеет способа получить результат.
+
+БАЗА ДАННЫХ
+
+- Вместо Base.metadata.create_all() в production использовать Alembic.
+- Нужно выбрать один уровень управления транзакциями: сейчас commit выполняется и в repository, и в get_db.
+- Регистрацию нужно защитить от race condition и обработать IntegrityError.
+- Email следует нормализовать через strip().lower().
+- UpdateUserRequest должен использовать Optional-поля, поскольку endpoint делает частичное обновление.
+- role лучше типизировать как Roles, а не как str.
+- UserNotFoundException сейчас возвращает 401; обычно должен быть 404.
+
+AI-ЧАСТЬ
+
+- URL ngrok зашит в ai_service.py; его нужно вынести в настройки.
+- Ответ модели нужно валидировать через Pydantic.
+- Нужно обрабатывать невалидный JSON от модели.
+- Результат анализа следует сохранять в базе.
+- hash(file_bytes) нельзя использовать как постоянный идентификатор файла; использовать SHA-256 или UUID.
+- AI_Response должна хранить user_id, task_id, статус, ответ, ошибку, время выполнения и file_key.
+
+DOCKER И ИНФРАСТРУКТУРА
+
+В docker-compose.yaml отсутствуют RabbitMQ, Redis, FastAPI-приложение и Celery worker, хотя настройки проекта их используют.
+
+Желательно добавить:
+- healthcheck;
+- depends_on с проверкой готовности;
+- переменные из .env;
+- фиксированную версию MinIO вместо latest;
+- внутренние Docker-сети;
+- порт MinIO console 9001 при необходимости.
+
+КАЧЕСТВО КОДА
+
+- Нет тестов.
+- Нет линтера и форматтера.
+- В security_service.py повторяются импорты и объявление security.
+- В settings.py есть опечатка proprts.env.
+- Есть неиспользуемые импорты и старые исключения.
+- Логи смешивают русский и английский язык.
+- Желательно добавить request ID и структурированные логи.
+- Нужен глобальный exception handler.
+
+РЕКОМЕНДУЕМЫЙ ПОРЯДОК РАБОТ
+
+1. Исправить зависимости и запуск приложения.
+2. Исправить auth router и FastAPI dependencies.
+3. Исправить передачу данных в Celery и интеграцию с MinIO.
+4. Добавить RabbitMQ, Redis и Celery worker в Docker Compose.
+5. Вынести секреты и URL в .env.
+6. Добавить endpoint проверки статуса задачи.
+7. Добавить Alembic.
+8. Добавить тесты регистрации, логина, JWT, загрузки файлов и Celery flow.
+9. Добавить строгую валидацию ответа AI через Pydantic.
