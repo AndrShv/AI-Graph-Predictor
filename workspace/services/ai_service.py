@@ -46,7 +46,7 @@ async def process_file(file_bytes: bytes, prompt: str) -> dict[str, Any]:
     user_prompt = prompt.strip() if prompt else DEFAULT_USER_PROMPT
     full_prompt = f"{SYSTEM_PROMPT}\n\nUser instruction: {user_prompt}"
     response = requests.post(
-        settings.AI_SERVICE_URL,
+        settings.Qwen2_5_VL_3B_Instruct_URL,
         json={
             "image_base64": base64.b64encode(file_bytes).decode("utf-8"),
             "max_new_tokens": 1500,

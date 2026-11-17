@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     PORT: int = 8001
     LOG_LEVEL: str = "INFO"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
-    AI_SERVICE_URL: str = "http://localhost:8000/generate-qwen2.5-vl"
+    Qwen2_5_VL_3B_Instruct_URL: str = "http://localhost:8000/generate-by-Qwen2.5-VL-3B-Instruct"
 
     model_config = SettingsConfigDict(
         env_file=("proprts.env", str(ENV_PATH)),
