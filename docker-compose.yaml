@@ -1,0 +1,127 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worker_AI
+    env_file:
+      - proprts.env
+    environment:
+      POSTGRES_SERVER: postgres
+      MINIO_INTERNAL_ENDPOINT: http://minio:9000
+      CLOUDAMQP_URL: ""
+      RABBITMQ_URL: ""
+      RABBIT_HOST: rabbitmq
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+    command: ["celery", "-A", "workspace.configs.celery_config:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rabbitmq_container
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256MB
+        reservations:
+          cpus: '0.25'
+          memory: 256MB
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_container
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256MB
+        reservations:
+          cpus: '0.25'
+          memory: 256MB
+
+
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres_container
+    environment:
+      POSTGRES_DB: ml_service
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: 1111
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "root", "-d", "ml_service" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+
+
+  minio:
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z
+    container_name: minio_container
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+
+volumes:
+  postgres_data:
+  minio_data:
