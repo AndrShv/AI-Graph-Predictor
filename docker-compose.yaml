@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ai_graph_worker
+    container_name: worker_AI
     env_file:
       - proprts.env
     environment:
@@ -29,7 +29,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
-    container_name: ai_graph_rabbitmq
+    container_name: rabbitmq_container
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -50,7 +50,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ai_graph_redis
+    container_name: redis_container
     ports:
       - "6379:6379"
     healthcheck:

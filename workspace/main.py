@@ -9,6 +9,7 @@ from workspace.configs.settings import settings
 from workspace.configs.db_config import init_db
 from workspace.rest.ai_controller import ai_router
 from workspace.rest.user_rest import auth_router
+from workspace.services.miniO import get_minio_client, get_minio_service
 
 log_level = os.getenv("LOG_LEVEL", settings.LOG_LEVEL).upper()
 
@@ -22,6 +23,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     await init_db()
+    get_minio_service(get_minio_client()).init_bucket()
     yield
 
 
