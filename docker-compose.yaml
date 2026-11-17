@@ -14,8 +14,7 @@ services:
       RABBIT_HOST: rabbitmq
       REDIS_HOST: redis
       REDIS_PASSWORD: ""
-      Qwen2_5_VL_3B_Instruct_URL: ${QWEN2_5_VL_3B_INSTRUCT_URL:-https://replace-with-ngrok-url/generate-by-Qwen2.5-VL-3B-Instruct}
-    command: ["celery", "-A", "workspace.configs.celery_config:celery_app", "worker", "--loglevel=INFO"]
+    command: ["celery", "-A", "workspace.configs.celery_config:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
     depends_on:
       postgres:
         condition: service_healthy

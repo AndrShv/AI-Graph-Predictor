@@ -86,14 +86,21 @@ class Settings(BaseSettings):
     @property
     def redis_url(self) -> str:
         if self.REDIS_PASSWORD:
-            return f"rediss://default:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+            return (
+                f"rediss://default:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:"
+                f"{self.REDIS_PORT}/0?ssl_cert_reqs=CERT_REQUIRED"
+            )
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
     @property
     def celery_result_backend(self) -> str:
         scheme = "rediss" if self.REDIS_PASSWORD and self.REDIS_HOST not in {"localhost", "127.0.0.1", "redis"} else "redis"
         if self.REDIS_PASSWORD:
-            return f"{scheme}://default:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/1"
+            ssl_options = "?ssl_cert_reqs=CERT_REQUIRED" if scheme == "rediss" else ""
+            return (
+                f"{scheme}://default:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:"
+                f"{self.REDIS_PORT}/1{ssl_options}"
+            )
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/1"
 
 
